@@ -5,6 +5,7 @@ import os
 
 import pam
 
+
 def auth(username, password, secure_tty=True):
     auth_user = Auth(username, password, secure_tty=secure_tty)
     auth_user.authenticate()
@@ -24,8 +25,7 @@ class Auth:
     AuthError = AuthError
 
     def __init__(self, username, password, secure_tty=True):
-        
-        
+
         _login = Path('/etc/pam.d/login')
         self.pam_service = _login.name
         self._login_tmp = Path('/etc/pam.d/login.tmp')
@@ -36,7 +36,7 @@ class Auth:
                         line = f'#{line}'
                     fob2.write(line)
             self.pam_service = self._login_tmp.name
-        
+
         self.username = username
         self.password = password
 
@@ -49,7 +49,7 @@ class Auth:
         """manually check tty"""
         tty = subprocess.run(['tty'], capture_output=True, text=True).stdout
         if tty.startswith('/dev/'):
-            tty=tty[5:]
+            tty = tty[5:]
         with open('/etc/securetty', 'r') as fob:
             if tty in fob:
                 return True
