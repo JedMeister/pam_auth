@@ -1,31 +1,51 @@
+"""PAM authentication wrapper that supports root login.
+
+pam_auth_py provides both a function and a class for user authentication via
+the pam 'login' service. It supports root login via securetty. securetty can
+be disabled for non root users if desired.
+
+Note; Written on Debian for Debian, so may have some Debian idiosyncrasies...
+"""
+
 import subprocess
 from pathlib import Path
 import sys
 import os
 
+# tested with pip's 'python-pam' package, but should also work with Debian
+# 'python3-pampy'.
 import pam
 
 
-def auth(username, password, secure_tty=True):
+def auth(username: str, password: str, secure_tty: bool = True) -> bool:
+    """PAM authentication function."""
     auth_user = Auth(username, password, secure_tty=secure_tty)
     auth_user.authenticate()
     return auth_user.auth
 
 
 class AuthError(Exception):
+    """Error."""
+
     pass
 
 
 class Auth:
-    """PAM authentication class. When running as root, it supports login via
-       any existing user, even root. Unlike default PAM it can check for access
-       via secure tty for all users (not just root).
+    """PAM authentication class.
+
+    When running as root, it supports login via any existing user, even root.
+    Unlike default PAM it can check for access via secure tty for all users
+    (not just root).
     """
 
     AuthError = AuthError
 
-    def __init__(self, username, password, secure_tty=True):
+    def __init__(self, username: str, password: str, secure_tty: bool = True):
+        """Initialise things as a good init should.
 
+        Note: Authtentication does not happen automatically. A call to the
+        authenticate() method is required.
+        """
         _login = Path('/etc/pam.d/login')
         self.pam_service = _login.name
         self._login_tmp = Path('/etc/pam.d/login.tmp')
@@ -45,8 +65,8 @@ class Auth:
         self.code = 1
 
     @staticmethod
-    def is_tty_secure():
-        """manually check tty"""
+    def is_tty_secure() -> bool:
+        """Manually check tty."""
         tty = subprocess.run(['tty'], capture_output=True, text=True).stdout
         if tty.startswith('/dev/'):
             tty = tty[5:]
@@ -55,8 +75,8 @@ class Auth:
                 return True
         return False
 
-    def authenticate(self, secure_tty=True):
-        """authenticate user"""
+    def authenticate(self, secure_tty: bool = True) -> None:
+        """Authenticate user."""
         if self.username == 'root':
             if not secure_tty:
                 raise self.AuthError('root always requires secure tty.')
@@ -71,10 +91,12 @@ class Auth:
         self.code = p.code
 
     def close(self):
+        """Cleanup method."""
         try:
             self._login_tmp.unlink()
         except (FileNotFoundError, PermissionError):
             pass
 
     def __del__(self):
+        """Magic method to ensure that temp file is cleaned up."""
         self.close()
