@@ -18,25 +18,22 @@ Note: Written on Debian for Debian, so may have some Debian idiosyncrasies...
 
 import subprocess
 from pathlib import Path
-import sys
 import os
 
 # tested with pip's 'python-pam' package, but should also work with Debian
 # 'python3-pampy'.
-import pam
+import pam  # type: ignore
 
 
 def auth(username: str, password: str, secure_tty: bool = True) -> bool:
     """PAM authentication function."""
-    auth_user = Auth(username, password, secure_tty=secure_tty)
-    auth_user.authenticate()
+    auth_user = Auth(username, password)
+    auth_user.authenticate(secure_tty=secure_tty)
     return auth_user.auth
 
 
 class AuthError(Exception):
     """Error."""
-
-    pass
 
 
 class Auth:
@@ -53,7 +50,7 @@ class Auth:
 
     AuthError = AuthError
 
-    def __init__(self, username: str, password: str, secure_tty: bool = True):
+    def __init__(self, username: str, password: str):
         """Initialise things as a good init should.
 
         Call the authenticate() method to authenticate user.
@@ -99,11 +96,11 @@ class Auth:
         if secure_tty and not self.is_tty_secure():
             raise self.AuthError('insecure tty')
 
-        p = pam.pam()
-        self.auth = p.authenticate(self.username, self.password,
-                                   service=self.pam_service)
-        self.reason = p.reason
-        self.code = p.code
+        _pam = pam.pam()
+        self.auth = _pam.authenticate(self.username, self.password,
+                                      service=self.pam_service)
+        self.reason = _pam.reason
+        self.code = _pam.code
 
     def close(self):
         """Cleanup."""
