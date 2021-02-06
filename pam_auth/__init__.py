@@ -1,10 +1,19 @@
 """PAM authentication wrapper that supports root login.
 
 pam_auth_py provides both a function and a class for user authentication via
-the pam 'login' service. It supports root login via securetty. securetty can
-be disabled for non root users if desired.
+the PAM 'login' service.
 
-Note; Written on Debian for Debian, so may have some Debian idiosyncrasies...
+Despite the different approach to user integration, much of the heavy lifting
+is done by the python-pam module. Beyond python-pam's functionality,
+pam_auth_py provides some additional features/functionality:
+
+    - Allows root to authenticate via the PAM 'login' service (not possible
+      by default in python-pam module). This means that when running as root,
+      it supports authentication for any existing user, even root itself.
+    - The ability to check the current tty agsinst the system designated
+      secure ttys for all users, not just root. On by default.
+
+Note: Written on Debian for Debian, so may have some Debian idiosyncrasies...
 """
 
 import subprocess
@@ -33,9 +42,13 @@ class AuthError(Exception):
 class Auth:
     """PAM authentication class.
 
-    When running as root, it supports login via any existing user, even root.
-    Unlike default PAM it can check for access via secure tty for all users
-    (not just root).
+    Once initialised, call the authenticate() method to authetnicate the user.
+
+    Instance values of note:
+
+        auth    (bool)  whether or not the user is authenticated
+        reason  (str)   a string describing the current status
+        code    (int)   return code (0 = auth:True, 1 = auth:False)
     """
 
     AuthError = AuthError
@@ -43,8 +56,7 @@ class Auth:
     def __init__(self, username: str, password: str, secure_tty: bool = True):
         """Initialise things as a good init should.
 
-        Note: Authtentication does not happen automatically. A call to the
-        authenticate() method is required.
+        Call the authenticate() method to authenticate user.
         """
         _login = Path('/etc/pam.d/login')
         self.pam_service = _login.name
@@ -66,7 +78,10 @@ class Auth:
 
     @staticmethod
     def is_tty_secure() -> bool:
-        """Manually check tty."""
+        """Manually check tty.
+
+        Check current tty against system secure ttys.
+        """
         tty = subprocess.run(['tty'], capture_output=True, text=True).stdout
         if tty.startswith('/dev/'):
             tty = tty[5:]
@@ -91,7 +106,7 @@ class Auth:
         self.code = p.code
 
     def close(self):
-        """Cleanup method."""
+        """Cleanup."""
         try:
             self._login_tmp.unlink()
         except (FileNotFoundError, PermissionError):
